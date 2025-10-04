@@ -3,13 +3,12 @@ package fetcher
 import (
 	"log"
 	"strings"
-	"time"
 
 	"github.com/mmcdole/gofeed"
 	"github.com/vzx7/crypto-news-selector/pkg/utils"
 )
 
-// NewsItem хранит заголовок и ссылку новости
+// NewsItem хранит заголовок, ссылку новости и описание
 type NewsItem struct {
 	Title       string
 	Link        string
@@ -41,28 +40,4 @@ func FetchNews(rssUrl string, coins []string) ([]NewsItem, error) {
 		}
 	}
 	return items, nil
-}
-
-// InitFetcher запускает периодический сбор новостей
-func InitFetcher(rssUrl string, coins []string, interval time.Duration, outChan chan<- NewsItem) {
-	// Мгновенный запуск
-	items, err := FetchNews(rssUrl, coins)
-	if err == nil && len(items) > 0 {
-		for _, n := range items {
-			outChan <- n
-		}
-	}
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	for range ticker.C {
-		items, err := FetchNews(rssUrl, coins)
-		if err != nil {
-			continue
-		}
-		for _, n := range items {
-			outChan <- n
-		}
-	}
 }
