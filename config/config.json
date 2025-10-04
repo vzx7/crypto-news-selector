@@ -1,0 +1,10 @@
+{
+  "interval": "5m",
+  "daily_check_interval": "24h",
+  "rss": [
+    {
+      "name": "coindesk",
+      "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"
+    }
+  ]
+}
