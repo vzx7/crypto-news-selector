@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/mmcdole/gofeed"
+	"github.com/vzx7/crypto-news-selector/pkg/utils"
 )
 
 // NewsItem хранит заголовок и ссылку новости
@@ -13,6 +14,7 @@ type NewsItem struct {
 	Title       string
 	Link        string
 	Description string
+	Content     string
 }
 
 // FetchNews опрашивает RSS и возвращает новости по монетам
@@ -25,6 +27,7 @@ func FetchNews(rssUrl string, coins []string) ([]NewsItem, error) {
 	}
 
 	var items []NewsItem
+
 	for _, item := range feed.Items {
 		for _, coin := range coins {
 			if strings.Contains(strings.ToLower(item.Title), strings.ToLower(coin)) {
@@ -32,6 +35,7 @@ func FetchNews(rssUrl string, coins []string) ([]NewsItem, error) {
 					Title:       item.Title,
 					Link:        item.Link,
 					Description: item.Description,
+					Content:     utils.StripHTML(item.Content),
 				})
 			}
 		}

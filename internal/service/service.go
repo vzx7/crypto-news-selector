@@ -89,17 +89,21 @@ func printNews(msg NewsMessage) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 
 	// Красный жирный для монеты
-	fmt.Printf("\n[%s] Монета: \033[1;31m%-10s\033[0m\n", timestamp, strings.ToUpper(msg.Coin))
+	fmt.Printf("\n[%s] COIN: \033[1;31m%-10s\033[0m\n", timestamp, strings.ToUpper(msg.Coin))
 
 	// Зеленый для заголовка
-	fmt.Printf("Заголовок: \033[32m%s\033[0m\n", msg.Item.Title)
+	fmt.Printf("TITLE: \033[32m%s\033[0m\n", msg.Item.Title)
+	if msg.Item.Description != "" {
+		fmt.Printf("DESC: %s\n\n", msg.Item.Description)
+	}
 
-	fmt.Printf("Описание: %s\n", msg.Item.Description)
+	fmt.Printf("CONTENT: %s\n\n", msg.Item.Content)
 
 	// Синий для ссылки
-	fmt.Printf("Ссылка: \033[34m%s\033[0m\n", msg.Item.Link)
+	fmt.Printf("LINK: \033[34m%s\033[0m\n\n", msg.Item.Link)
 
-	fmt.Println("----------------------------------------------------------------------------")
+	fmt.Println(">>>---------------------------------------------------------------------------->>>")
+	fmt.Println(">>>---------------------------------------------------------------------------->>>")
 }
 
 // findCoinInTitle ищет монету в заголовке новости
