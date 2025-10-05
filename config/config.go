@@ -10,7 +10,7 @@ import (
 
 const (
 	pathConfig   = "./config/config.json"
-	pathProjects = "./coins.txt"
+	pathProjects = "./projects.txt"
 )
 
 type RSS struct {

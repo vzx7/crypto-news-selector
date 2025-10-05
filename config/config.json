@@ -2,9 +2,9 @@
   "interval": "5m",
   "file_settings": {
     "archive_dir": "archive",
+    "archive_life": "2160h",
     "daily_check_interval": "24h",
     "log_retention": "336h",
-    "archive_life": "2160h",
     "max_workers": 5
   },
   "rss": [
