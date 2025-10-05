@@ -2,6 +2,7 @@ package fetcher
 
 import (
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/mmcdole/gofeed"
@@ -29,7 +30,9 @@ func FetchNews(rssUrl string, projects []string) ([]NewsItem, error) {
 
 	for _, item := range feed.Items {
 		for _, project := range projects {
-			if strings.Contains(strings.ToLower(item.Title), strings.ToLower(project)) {
+			pattern := `\b` + regexp.QuoteMeta(project) + `\b`
+			matched, _ := regexp.MatchString(pattern, strings.ToLower(item.Title))
+			if matched {
 				items = append(items, NewsItem{
 					Title:       item.Title,
 					Link:        item.Link,
