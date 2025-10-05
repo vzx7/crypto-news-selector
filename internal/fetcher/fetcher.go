@@ -33,7 +33,7 @@ func FetchNews(rssUrl string, coins []string) ([]NewsItem, error) {
 				items = append(items, NewsItem{
 					Title:       item.Title,
 					Link:        item.Link,
-					Description: item.Description,
+					Description: utils.StripHTML(item.Description),
 					Content:     utils.StripHTML(item.Content),
 				})
 			}

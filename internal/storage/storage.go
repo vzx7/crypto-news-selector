@@ -11,18 +11,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/vzx7/crypto-news-selector/config"
 	"github.com/vzx7/crypto-news-selector/pkg/utils"
 )
 
 var (
-	NewsDir      string
-	ArchiveDir   = "archive"
-	LogRetention = 14 * 24 * time.Hour // 2 недели
-	ArchiveLife  = 90 * 24 * time.Hour // 3 месяца
-	MaxWorkers   = 5                   // максимум одновременно работающих горутин
-	semaphore    = make(chan struct{}, MaxWorkers)
+	newsDir      string
+	archiveDir   = "archive"
+	logRetention = 14 * 24 * time.Hour // 2 недели
+	archiveLife  = 90 * 24 * time.Hour // 3 месяца
+	maxWorkers   = 5                   // максимум одновременно работающих горутин
 	wg           sync.WaitGroup
 	coinLocks    sync.Map // mutex для каждого coin
+	semaphore    chan struct{}
 )
 
 func init() {
@@ -30,28 +31,48 @@ func init() {
 	if home == "" {
 		log.Fatal("Не удалось определить домашний каталог пользователя")
 	}
-	NewsDir = filepath.Join(home, "news")
+	newsDir = filepath.Join(home, "news")
+}
+
+func setParams(cfg config.Config) {
+	// Если в конфиге есть указание, применить из конфига
+	if cfg.FileSettings.MaxWorkers != 0 {
+		maxWorkers = cfg.FileSettings.MaxWorkers
+	}
+	if cfg.FileSettings.ArchiveDir != "" {
+		archiveDir = cfg.FileSettings.ArchiveDir
+	}
+	if cfg.FileSettings.LogRetention != 0 {
+		logRetention = cfg.FileSettings.LogRetention
+	}
+	if cfg.FileSettings.ArchiveLife != 0 {
+		archiveLife = cfg.FileSettings.ArchiveLife
+	}
 }
 
 // InitStorage создаёт директории и мьютексы для монет
-func InitStorage(coins []string) error {
-	if err := os.MkdirAll(NewsDir, 0755); err != nil {
+func InitStorage(cfg config.Config) error {
+	if err := os.MkdirAll(newsDir, 0755); err != nil {
 		return err
 	}
-	for _, coin := range coins {
+	setParams(cfg)
+	// создаём семафор с нужным количеством воркеров
+	semaphore = make(chan struct{}, maxWorkers)
+
+	for _, coin := range cfg.Projects {
 		safeCoin := utils.NormalizeCoinName(coin)
-		coinDir := filepath.Join(NewsDir, safeCoin)
+		coinDir := filepath.Join(newsDir, safeCoin)
 		if err := os.MkdirAll(coinDir, 0755); err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Join(coinDir, ArchiveDir), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(coinDir, cfg.FileSettings.ArchiveDir), 0755); err != nil {
 			return err
 		}
 		coinLocks.Store(safeCoin, &sync.Mutex{})
 	}
 
 	// Асинхронная проверка при старте
-	go CleanupAndArchive(coins)
+	go CleanupAndArchive(cfg.Projects)
 	return nil
 }
 
@@ -59,7 +80,7 @@ func InitStorage(coins []string) error {
 func SaveNews(coin string, news []string) error {
 	safeCoin := utils.NormalizeCoinName(coin)
 	today := time.Now().Format("2006-01-02")
-	coinDir := filepath.Join(NewsDir, safeCoin)
+	coinDir := filepath.Join(newsDir, safeCoin)
 	filename := filepath.Join(coinDir, fmt.Sprintf("%s.log", today))
 
 	if err := os.MkdirAll(coinDir, 0755); err != nil {
@@ -99,7 +120,6 @@ func SaveNews(coin string, news []string) error {
 		existing[n] = struct{}{}
 	}
 
-	// Асинхронное архивирование старых файлов
 	wg.Add(1)
 	go func(c string) {
 		defer wg.Done()
@@ -144,7 +164,7 @@ func archiveCoinFiles(coin string) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	dir := filepath.Join(NewsDir, coin)
+	dir := filepath.Join(newsDir, coin)
 	files, _ := filepath.Glob(filepath.Join(dir, "*.log"))
 
 	for _, f := range files {
@@ -152,8 +172,8 @@ func archiveCoinFiles(coin string) {
 		if err != nil {
 			continue
 		}
-		if time.Since(info.ModTime()) > LogRetention {
-			if err := archiveFile(f, filepath.Join(dir, ArchiveDir)); err == nil {
+		if time.Since(info.ModTime()) > logRetention {
+			if err := archiveFile(f, filepath.Join(dir, archiveDir)); err == nil {
 				os.Remove(f)
 			} else {
 				log.Println("Ошибка архивирования:", err)
@@ -196,7 +216,7 @@ func archiveFile(filePath, archiveDir string) error {
 
 // cleanupOldArchives удаляет архивы старше ArchiveLife
 func cleanupOldArchives(coin string) {
-	archivePath := filepath.Join(NewsDir, coin, ArchiveDir)
+	archivePath := filepath.Join(newsDir, coin, archiveDir)
 	files, _ := filepath.Glob(filepath.Join(archivePath, "*.zip"))
 
 	for _, f := range files {
@@ -204,7 +224,7 @@ func cleanupOldArchives(coin string) {
 		if err != nil {
 			continue
 		}
-		if time.Since(info.ModTime()) > ArchiveLife {
+		if time.Since(info.ModTime()) > archiveLife {
 			os.Remove(f)
 		}
 	}

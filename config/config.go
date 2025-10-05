@@ -4,6 +4,13 @@ import (
 	"encoding/json"
 	"os"
 	"time"
+
+	"github.com/vzx7/crypto-news-selector/pkg/utils"
+)
+
+const (
+	pathConfig   = "./config/config.json"
+	pathProjects = "./coins.txt"
 )
 
 type RSS struct {
@@ -11,17 +18,30 @@ type RSS struct {
 	Url  string `json:"url"`
 }
 
-type Config struct {
-	IntervalStr           string `json:"interval"`             // строка из JSON
-	DailyCheckIntervalStr string `json:"daily_check_interval"` // строка из JSON
-	RSS                   []RSS  `json:"rss"`
+type FileSettings struct {
+	ArchiveDir            string `json:"archive_dir"`
+	DailyCheckIntervalStr string `json:"daily_check_interval"`
+	LogRetentionStr       string `json:"log_retention"`
+	ArchiveLifeStr        string `json:"archive_life"`
+	MaxWorkers            int    `json:"max_workers"`
 
-	Interval           time.Duration // внутреннее поле
-	DailyCheckInterval time.Duration // внутреннее поле
+	// вычисленные значения
+	DailyCheckInterval time.Duration
+	LogRetention       time.Duration
+	ArchiveLife        time.Duration
 }
 
-func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+type Config struct {
+	IntervalStr  string       `json:"interval"`
+	RSS          []RSS        `json:"rss"`
+	FileSettings FileSettings `json:"file_settings"`
+	Projects     []string
+	Interval     time.Duration
+}
+
+func LoadConfig() (*Config, error) {
+	data, err := os.ReadFile(pathConfig)
+
 	if err != nil {
 		return nil, err
 	}
@@ -31,11 +51,14 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
+	if cfg.Projects, err = utils.LoadCoinsFromFile(pathProjects); err != nil {
+		return nil, err
+	}
 	// парсим строки в time.Duration
 	if cfg.Interval, err = time.ParseDuration(cfg.IntervalStr); err != nil {
 		return nil, err
 	}
-	if cfg.DailyCheckInterval, err = time.ParseDuration(cfg.DailyCheckIntervalStr); err != nil {
+	if cfg.FileSettings.DailyCheckInterval, err = time.ParseDuration(cfg.FileSettings.DailyCheckIntervalStr); err != nil {
 		return nil, err
 	}
 

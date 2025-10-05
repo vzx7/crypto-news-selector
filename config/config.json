@@ -1,10 +1,24 @@
 {
   "interval": "5m",
-  "daily_check_interval": "24h",
+  "file_settings": {
+    "archive_dir": "archive",
+    "daily_check_interval": "24h",
+    "log_retention": "336h",
+    "archive_life": "2160h",
+    "max_workers": 5
+  },
   "rss": [
     {
       "name": "coindesk",
       "url": "https://www.coindesk.com/arc/outboundfeeds/rss/"
+    },
+    {
+      "name": "cointelegraph",
+      "url": "https://cointelegraph.com/rss"
+    },
+    {
+      "name": "u.today",
+      "url": "https://u.today/rss.php"
     }
   ]
 }

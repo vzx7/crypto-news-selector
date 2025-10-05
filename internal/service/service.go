@@ -6,16 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vzx7/crypto-news-selector/config"
 	"github.com/vzx7/crypto-news-selector/internal/fetcher"
 	"github.com/vzx7/crypto-news-selector/internal/storage"
 )
-
-type Config struct {
-	Coins              []string
-	RSSUrl             string
-	Interval           time.Duration
-	DailyCheckInterval time.Duration
-}
 
 // NewsMessage хранит новость и привязанную монету
 type NewsMessage struct {
@@ -23,9 +17,9 @@ type NewsMessage struct {
 	Item fetcher.NewsItem
 }
 
-func Run(cfg Config) {
+func Run(cfg config.Config) {
 	// Инициализация хранилища
-	if err := storage.InitStorage(cfg.Coins); err != nil {
+	if err := storage.InitStorage(cfg); err != nil {
 		log.Fatal("Ошибка инициализации хранилища:", err)
 	}
 
@@ -44,43 +38,52 @@ func Run(cfg Config) {
 		}
 	}()
 
-	// Периодический сбор новостей
+	// Периодический сбор новостей с нескольких RSS
 	go func() {
-		// Мгновенный сбор
-		items, err := fetcher.FetchNews(cfg.RSSUrl, cfg.Coins)
-		if err == nil && len(items) > 0 {
+		seen := make(map[string]struct{}) // кеш заголовков для устранения дубликатов
+
+		processRSS := func(rssURL string) {
+			items, err := fetcher.FetchNews(rssURL, cfg.Projects)
+			if err != nil {
+				log.Printf("Ошибка при сборе новостей с %s: %v", rssURL, err)
+				return
+			}
+
 			for _, n := range items {
-				coin := findCoinInTitle(n.Title, cfg.Coins)
+				if _, exists := seen[n.Title]; exists {
+					continue // пропускаем дубликат
+				}
+
+				coin := findCoinInTitle(n.Title, cfg.Projects)
 				if coin != "" {
 					newsChan <- NewsMessage{Coin: coin, Item: n}
+					seen[n.Title] = struct{}{}
 				}
 			}
+		}
+
+		// Мгновенный сбор при старте
+		for _, rss := range cfg.RSS {
+			processRSS(rss.Url)
 		}
 
 		ticker := time.NewTicker(cfg.Interval)
 		defer ticker.Stop()
 
 		for range ticker.C {
-			items, err := fetcher.FetchNews(cfg.RSSUrl, cfg.Coins)
-			if err != nil {
-				continue
-			}
-			for _, n := range items {
-				coin := findCoinInTitle(n.Title, cfg.Coins)
-				if coin != "" {
-					newsChan <- NewsMessage{Coin: coin, Item: n}
-				}
+			for _, rss := range cfg.RSS {
+				processRSS(rss.Url)
 			}
 		}
 	}()
 
 	// Ежедневная проверка хранилища
-	dailyTicker := time.NewTicker(cfg.DailyCheckInterval)
+	dailyTicker := time.NewTicker(cfg.FileSettings.DailyCheckInterval)
 	defer dailyTicker.Stop()
 
 	for range dailyTicker.C {
 		log.Println("Запуск ежедневной проверки хранения новостей...")
-		go storage.CleanupAndArchive(cfg.Coins)
+		go storage.CleanupAndArchive(cfg.Projects)
 	}
 }
 
@@ -89,15 +92,17 @@ func printNews(msg NewsMessage) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 
 	// Красный жирный для монеты
-	fmt.Printf("\n[%s] COIN: \033[1;31m%-10s\033[0m\n", timestamp, strings.ToUpper(msg.Coin))
+	fmt.Printf("\n[%s] COIN: \033[1;31m%-10s\033[0m\n\n", timestamp, strings.ToUpper(msg.Coin))
 
 	// Зеленый для заголовка
-	fmt.Printf("TITLE: \033[32m%s\033[0m\n", msg.Item.Title)
+	fmt.Printf("TITLE: \033[32m%s\033[0m\n\n", msg.Item.Title)
 	if msg.Item.Description != "" {
 		fmt.Printf("DESC: %s\n\n", msg.Item.Description)
 	}
 
-	fmt.Printf("CONTENT: %s\n\n", msg.Item.Content)
+	if msg.Item.Content != "" {
+		fmt.Printf("CONTENT: %s\n\n", msg.Item.Content)
+	}
 
 	// Синий для ссылки
 	fmt.Printf("LINK: \033[34m%s\033[0m\n\n", msg.Item.Link)
