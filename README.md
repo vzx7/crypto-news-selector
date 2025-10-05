@@ -49,6 +49,8 @@ ethereum
 Cosmos Hub
 ```
 Each project on a separate line. The letter register does not matter.
+## Example
+![example](./example/ex.png)
 ## TODO
 - Add a layer to launch an application as a Systemd demon.
 - Add the output of the current project price.
