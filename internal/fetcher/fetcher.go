@@ -2,8 +2,6 @@ package fetcher
 
 import (
 	"log"
-	"regexp"
-	"strings"
 
 	"github.com/mmcdole/gofeed"
 	"github.com/vzx7/crypto-news-selector/pkg/utils"
@@ -30,9 +28,7 @@ func FetchNews(rssUrl string, projects []string) ([]NewsItem, error) {
 
 	for _, item := range feed.Items {
 		for _, project := range projects {
-			pattern := `\b` + regexp.QuoteMeta(project) + `\b`
-			matched, _ := regexp.MatchString(pattern, strings.ToLower(item.Title))
-			if matched {
+			if utils.MatchesProjectName(item.Title, project) {
 				items = append(items, NewsItem{
 					Title:       item.Title,
 					Link:        item.Link,

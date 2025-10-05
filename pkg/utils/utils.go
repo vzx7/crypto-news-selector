@@ -54,3 +54,22 @@ func StripHTML(htmlStr string) string {
 	f(doc)
 	return sb.String()
 }
+
+// MatchesProjectName Find all the entry of the project in the header
+func MatchesProjectName(title, project string) bool {
+	title = strings.ToLower(title)
+	project = strings.ToLower(project)
+
+	parts := strings.Fields(project)
+	if len(parts) > 1 {
+		// Between the words we admit spaces, hyphen or absence of a separator
+		pattern := `\b` + strings.Join(parts, `[-_ ]*`) + `\b`
+		matched, _ := regexp.MatchString(pattern, title)
+		return matched
+	}
+
+	// иначе — обычное слово
+	pattern := `\b` + regexp.QuoteMeta(project) + `\b`
+	matched, _ := regexp.MatchString(pattern, title)
+	return matched
+}
