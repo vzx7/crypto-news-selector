@@ -49,6 +49,16 @@ ethereum
 Cosmos Hub
 ```
 Each project on a separate line. The letter register does not matter.
+## Use
+```sh
+git clone git@github.com:vzx7/crypto-news-selector.git
+cd crypto-news-selector
+go mod tidy
+go run main.go
+# Or build and run
+go build -o crypto-news-selector
+./crypto-news-selector
+```
 ## Example
 ![example](./example/ex.png)
 ## TODO
