@@ -10,7 +10,7 @@ import (
 func main() {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatal("Ошибка загрузки конфига:", err)
+		log.Fatal("Config loading error:", err)
 	}
 
 	service.Run(*cfg)

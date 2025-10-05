@@ -11,47 +11,45 @@ import (
 	"github.com/vzx7/crypto-news-selector/internal/storage"
 )
 
-// NewsMessage хранит новость и привязанную монету
+// NewsMessage keeps the news and attached project
 type NewsMessage struct {
 	Project string
 	Item    fetcher.NewsItem
 }
 
 func Run(cfg config.Config) {
-	// Инициализация хранилища
 	if err := storage.InitStorage(cfg); err != nil {
-		log.Fatal("Ошибка инициализации хранилища:", err)
+		log.Fatal("Error initialization of the storage:", err)
 	}
 
 	newsChan := make(chan NewsMessage, 100)
 
-	// Асинхронная обработка новостей
 	go func() {
 		for msg := range newsChan {
-			printNews(msg) // цветной вывод в терминал
+			printNews(msg)
 
-			// Форматируем для файла (чистый текст, без цветов)
+			// We format for a file (clean text, without colors)
 			formatted := fmt.Sprintf("[%s] %s (link: %s)", msg.Item.Title, msg.Item.Description, msg.Item.Link)
 			if err := storage.SaveNews(msg.Project, []string{formatted}); err != nil {
-				log.Println("Ошибка записи новостей:", err)
+				log.Println("News recording error:", err)
 			}
 		}
 	}()
 
-	// Периодический сбор новостей с нескольких RSS
 	go func() {
-		seen := make(map[string]struct{}) // кеш заголовков для устранения дубликатов
+		// cache headers to eliminate duplicates
+		seen := make(map[string]struct{})
 
 		processRSS := func(rssURL string) {
 			items, err := fetcher.FetchNews(rssURL, cfg.Projects)
 			if err != nil {
-				log.Printf("Ошибка при сборе новостей с %s: %v", rssURL, err)
+				log.Printf("Error when collecting news from %s: %v", rssURL, err)
 				return
 			}
 
 			for _, n := range items {
 				if _, exists := seen[n.Title]; exists {
-					continue // пропускаем дубликат
+					continue
 				}
 
 				project := findProjectInTitle(n.Title, cfg.Projects)
@@ -77,25 +75,26 @@ func Run(cfg config.Config) {
 		}
 	}()
 
-	// Ежедневная проверка хранилища
+	// Daily storage check
 	dailyTicker := time.NewTicker(cfg.FileSettings.DailyCheckInterval)
 	defer dailyTicker.Stop()
 
 	for range dailyTicker.C {
-		log.Println("Запуск ежедневной проверки хранения новостей...")
+		log.Println("Launching daily news storage checks...")
 		go storage.CleanupAndArchive(cfg.Projects)
 	}
 }
 
-// printNews выводит новость в терминал с цветами
+// printNews leads the news to the terminal with flowers
 func printNews(msg NewsMessage) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 
-	// Красный жирный для монеты
+	// Red fat for the name of the project
 	fmt.Printf("\n[%s] PROJECT: \033[1;31m%-10s\033[0m\n\n", timestamp, strings.ToUpper(msg.Project))
 
-	// Зеленый для заголовка
+	// Green for title
 	fmt.Printf("TITLE: \033[32m%s\033[0m\n\n", msg.Item.Title)
+
 	if msg.Item.Description != "" {
 		fmt.Printf("DESC: %s\n\n", msg.Item.Description)
 	}
@@ -104,14 +103,14 @@ func printNews(msg NewsMessage) {
 		fmt.Printf("CONTENT: %s\n\n", msg.Item.Content)
 	}
 
-	// Синий для ссылки
+	// Blue for link
 	fmt.Printf("LINK: \033[34m%s\033[0m\n\n", msg.Item.Link)
 
 	fmt.Println(">>>---------------------------------------------------------------------------->>>")
 	fmt.Println(">>>---------------------------------------------------------------------------->>>")
 }
 
-// findProjectInTitle ищет монету в заголовке новости
+// findProjectInTitle looking for a project in the heading of news
 func findProjectInTitle(title string, projects []string) string {
 	lowerTitle := strings.ToLower(title)
 	for _, c := range projects {

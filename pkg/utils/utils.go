@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/html"
 )
 
+// LoadProjectsFromFile Upload projects from a file
 func LoadProjectsFromFile(fileName string) ([]string, error) {
 	file, error := os.Open(fileName)
 	if error != nil {
@@ -28,12 +29,13 @@ func LoadProjectsFromFile(fileName string) ([]string, error) {
 	return projects, scanner.Err()
 }
 
+// NormalizeProjectName We replace everything that is not letters/numbers/hyphen/emphasizing _
 func NormalizeProjectName(name string) string {
-	// Заменяем всё, что не буквы/цифры/дефис/подчеркивание на _
 	re := regexp.MustCompile(`[^\w\-]+`)
 	return re.ReplaceAllString(name, "_")
 }
 
+// StripHTML Clean text from html tags
 func StripHTML(htmlStr string) string {
 	doc, err := html.Parse(strings.NewReader(htmlStr))
 	if err != nil {

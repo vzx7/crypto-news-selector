@@ -8,7 +8,7 @@ import (
 	"github.com/vzx7/crypto-news-selector/pkg/utils"
 )
 
-// NewsItem хранит заголовок, ссылку новости и описание
+// NewsItem stores a title, news link and description
 type NewsItem struct {
 	Title       string
 	Link        string
@@ -16,12 +16,12 @@ type NewsItem struct {
 	Content     string
 }
 
-// FetchNews опрашивает RSS и возвращает новости по монетам
+// FetchNews interviews RSS and returns news on projects
 func FetchNews(rssUrl string, projects []string) ([]NewsItem, error) {
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(rssUrl)
 	if err != nil {
-		log.Printf("Ошибка при парсинге RSS: %v", err)
+		log.Printf("RSS parsing error: %v", err)
 		return nil, err
 	}
 

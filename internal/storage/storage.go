@@ -18,24 +18,24 @@ import (
 var (
 	newsDir      string
 	archiveDir   = "archive"
-	logRetention = 14 * 24 * time.Hour // 2 недели
-	archiveLife  = 90 * 24 * time.Hour // 3 месяца
-	maxWorkers   = 5                   // максимум одновременно работающих горутин
+	logRetention = 14 * 24 * time.Hour // 2 weeks
+	archiveLife  = 90 * 24 * time.Hour // 3 months
+	maxWorkers   = 5                   // maximum at the same time working Gorutin
 	wg           sync.WaitGroup
-	projectLocks sync.Map // mutex для каждого project
+	projectLocks sync.Map // mutex for each project
 	semaphore    chan struct{}
 )
 
 func init() {
 	home := os.Getenv("HOME")
 	if home == "" {
-		log.Fatal("Не удалось определить домашний каталог пользователя")
+		log.Fatal("It was not possible to determine the home user's home catalog!")
 	}
 	newsDir = filepath.Join(home, "news")
 }
 
+// setParams configure the configuration, take the fields from the config if it is there
 func setParams(cfg config.Config) {
-	// Если в конфиге есть указание, применить из конфига
 	if cfg.FileSettings.MaxWorkers != 0 {
 		maxWorkers = cfg.FileSettings.MaxWorkers
 	}
@@ -50,13 +50,14 @@ func setParams(cfg config.Config) {
 	}
 }
 
-// InitStorage создаёт директории и мьютексы для монет
+// InitStorage
 func InitStorage(cfg config.Config) error {
 	if err := os.MkdirAll(newsDir, 0755); err != nil {
 		return err
 	}
+
 	setParams(cfg)
-	// создаём семафор с нужным количеством воркеров
+
 	semaphore = make(chan struct{}, maxWorkers)
 
 	for _, project := range cfg.Projects {
@@ -71,12 +72,11 @@ func InitStorage(cfg config.Config) error {
 		projectLocks.Store(safeProject, &sync.Mutex{})
 	}
 
-	// Асинхронная проверка при старте
 	go CleanupAndArchive(cfg.Projects)
 	return nil
 }
 
-// SaveNews пишет новости в файл и запускает асинхронное архивирование
+// SaveNews writes news to the file and launches asynchronous archiving
 func SaveNews(project string, news []string) error {
 	safeProject := utils.NormalizeProjectName(project)
 	today := time.Now().Format("2006-01-02")
@@ -87,14 +87,14 @@ func SaveNews(project string, news []string) error {
 		return err
 	}
 
-	// Читаем уже существующие записи, чтобы не писать дубли
+	// We read existing notes so as not to write duplicate
 	existing := make(map[string]struct{})
 	if data, err := os.ReadFile(filename); err == nil {
 		lines := strings.Split(string(data), "\n")
-		// Ограничим память – учитываем только последние 200 записей
+		// Limit memory - take into account only the last 200 records
 		for i := len(lines) - 200; i < len(lines); i++ {
 			if i >= 0 && len(lines[i]) > 0 {
-				// Убираем префикс с датой вида [2025-10-04T15:04:05Z]
+				// We remove the prefix with the date of the species [2025-10-04t15: 04: 05z]
 				if idx := strings.Index(lines[i], "] "); idx != -1 {
 					existing[lines[i][idx+2:]] = struct{}{}
 				}
@@ -110,13 +110,13 @@ func SaveNews(project string, news []string) error {
 
 	for _, n := range news {
 		if _, found := existing[n]; found {
-			continue // пропускаем дубликат
+			continue
 		}
 		line := fmt.Sprintf("[%s] %s\n", time.Now().Format(time.RFC3339), n)
 		if _, err := f.WriteString(line); err != nil {
 			return err
 		}
-		// добавляем в map, чтобы не писать дубли в рамках этого вызова
+		// We both in MAP so as not to write duplicate as part of this call
 		existing[n] = struct{}{}
 	}
 
@@ -131,7 +131,7 @@ func SaveNews(project string, news []string) error {
 	return nil
 }
 
-// CleanupAndArchive проверяет все монеты и архивирует старые файлы
+// CleanupAndArchive checks all projects and archives old files
 func CleanupAndArchive(projects []string) {
 	for _, project := range projects {
 		wg.Add(1)
@@ -146,19 +146,19 @@ func CleanupAndArchive(projects []string) {
 	wg.Wait()
 }
 
-// getProjectMutex возвращает мьютекс для монеты, создавая его при необходимости
+// getProjectMutex Returns Mutex for the project, creating it if necessary
 func getProjectMutex(project string) *sync.Mutex {
 	safeProject := utils.NormalizeProjectName(project)
 	if m, ok := projectLocks.Load(safeProject); ok {
 		return m.(*sync.Mutex)
 	}
-	// ленивое создание
+
 	mutex := &sync.Mutex{}
 	actual, _ := projectLocks.LoadOrStore(safeProject, mutex)
 	return actual.(*sync.Mutex)
 }
 
-// archiveProjectFiles архивирует старые файлы для монеты
+// archiveProjectFiles Archives old files for projects
 func archiveProjectFiles(project string) {
 	mutex := getProjectMutex(project)
 	mutex.Lock()
@@ -176,13 +176,13 @@ func archiveProjectFiles(project string) {
 			if err := archiveFile(f, filepath.Join(dir, archiveDir)); err == nil {
 				os.Remove(f)
 			} else {
-				log.Println("Ошибка архивирования:", err)
+				log.Println("Superior archiving:", err)
 			}
 		}
 	}
 }
 
-// archiveFile создаёт zip-архив из файла
+// archiveFile Creates a ZIP archive from a file
 func archiveFile(filePath, archiveDir string) error {
 	if err := os.MkdirAll(archiveDir, 0755); err != nil {
 		return err
@@ -214,7 +214,7 @@ func archiveFile(filePath, archiveDir string) error {
 	return err
 }
 
-// cleanupOldArchives удаляет архивы старше ArchiveLife
+// cleanupOldArchives Removes archives older than ArchiveLife
 func cleanupOldArchives(project string) {
 	archivePath := filepath.Join(newsDir, project, archiveDir)
 	files, _ := filepath.Glob(filepath.Join(archivePath, "*.zip"))
