@@ -64,5 +64,6 @@ go build -o crypto-news-selector
 ## TODO
 - Add a layer to launch an application as a Systemd demon.
 - Add the output of the current project price.
+- Add tests.
 ## License
 MIT
