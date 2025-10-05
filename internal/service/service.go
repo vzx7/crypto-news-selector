@@ -62,6 +62,7 @@ func Run(cfg config.Config) {
 
 		// Мгновенный сбор при старте
 		for _, rss := range cfg.RSS {
+			logAnalysisTime()
 			processRSS(rss.Url)
 		}
 
@@ -69,6 +70,7 @@ func Run(cfg config.Config) {
 		defer ticker.Stop()
 
 		for range ticker.C {
+			logAnalysisTime()
 			for _, rss := range cfg.RSS {
 				processRSS(rss.Url)
 			}
@@ -93,7 +95,7 @@ func printNews(msg NewsMessage) {
 	fmt.Printf("\n[%s] PROJECT: \033[1;31m%-10s\033[0m\n\n", timestamp, strings.ToUpper(msg.Project))
 
 	// Green for title
-	fmt.Printf("TITLE: \033[32m%s\033[0m\n\n", msg.Item.Title)
+	fmt.Printf("TITLE: \033[32m%s\033[0m\n", msg.Item.Title)
 
 	if msg.Item.Description != "" {
 		fmt.Printf("DESC: %s\n\n", msg.Item.Description)
@@ -107,7 +109,6 @@ func printNews(msg NewsMessage) {
 	fmt.Printf("LINK: \033[34m%s\033[0m\n\n", msg.Item.Link)
 
 	fmt.Println(">>>---------------------------------------------------------------------------->>>")
-	fmt.Println(">>>---------------------------------------------------------------------------->>>")
 }
 
 // findProjectInTitle looking for a project in the heading of news
@@ -119,4 +120,10 @@ func findProjectInTitle(title string, projects []string) string {
 		}
 	}
 	return ""
+}
+
+func logAnalysisTime() {
+	fmt.Println("\n<==================================================================================>")
+	fmt.Printf("                     RSS analysis for projects. Time: %s\n", time.Now().Format("15:04:05"))
+	fmt.Println("<==================================================================================>")
 }
