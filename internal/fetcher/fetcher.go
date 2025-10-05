@@ -17,7 +17,7 @@ type NewsItem struct {
 }
 
 // FetchNews опрашивает RSS и возвращает новости по монетам
-func FetchNews(rssUrl string, coins []string) ([]NewsItem, error) {
+func FetchNews(rssUrl string, projects []string) ([]NewsItem, error) {
 	fp := gofeed.NewParser()
 	feed, err := fp.ParseURL(rssUrl)
 	if err != nil {
@@ -28,8 +28,8 @@ func FetchNews(rssUrl string, coins []string) ([]NewsItem, error) {
 	var items []NewsItem
 
 	for _, item := range feed.Items {
-		for _, coin := range coins {
-			if strings.Contains(strings.ToLower(item.Title), strings.ToLower(coin)) {
+		for _, project := range projects {
+			if strings.Contains(strings.ToLower(item.Title), strings.ToLower(project)) {
 				items = append(items, NewsItem{
 					Title:       item.Title,
 					Link:        item.Link,

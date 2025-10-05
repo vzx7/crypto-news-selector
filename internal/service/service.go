@@ -13,8 +13,8 @@ import (
 
 // NewsMessage хранит новость и привязанную монету
 type NewsMessage struct {
-	Coin string
-	Item fetcher.NewsItem
+	Project string
+	Item    fetcher.NewsItem
 }
 
 func Run(cfg config.Config) {
@@ -32,7 +32,7 @@ func Run(cfg config.Config) {
 
 			// Форматируем для файла (чистый текст, без цветов)
 			formatted := fmt.Sprintf("[%s] %s (link: %s)", msg.Item.Title, msg.Item.Description, msg.Item.Link)
-			if err := storage.SaveNews(msg.Coin, []string{formatted}); err != nil {
+			if err := storage.SaveNews(msg.Project, []string{formatted}); err != nil {
 				log.Println("Ошибка записи новостей:", err)
 			}
 		}
@@ -54,9 +54,9 @@ func Run(cfg config.Config) {
 					continue // пропускаем дубликат
 				}
 
-				coin := findCoinInTitle(n.Title, cfg.Projects)
-				if coin != "" {
-					newsChan <- NewsMessage{Coin: coin, Item: n}
+				project := findProjectInTitle(n.Title, cfg.Projects)
+				if project != "" {
+					newsChan <- NewsMessage{Project: project, Item: n}
 					seen[n.Title] = struct{}{}
 				}
 			}
@@ -92,7 +92,7 @@ func printNews(msg NewsMessage) {
 	timestamp := time.Now().Format("2006-01-02 15:04:05")
 
 	// Красный жирный для монеты
-	fmt.Printf("\n[%s] COIN: \033[1;31m%-10s\033[0m\n\n", timestamp, strings.ToUpper(msg.Coin))
+	fmt.Printf("\n[%s] PROJECT: \033[1;31m%-10s\033[0m\n\n", timestamp, strings.ToUpper(msg.Project))
 
 	// Зеленый для заголовка
 	fmt.Printf("TITLE: \033[32m%s\033[0m\n\n", msg.Item.Title)
@@ -111,10 +111,10 @@ func printNews(msg NewsMessage) {
 	fmt.Println(">>>---------------------------------------------------------------------------->>>")
 }
 
-// findCoinInTitle ищет монету в заголовке новости
-func findCoinInTitle(title string, coins []string) string {
+// findProjectInTitle ищет монету в заголовке новости
+func findProjectInTitle(title string, projects []string) string {
 	lowerTitle := strings.ToLower(title)
-	for _, c := range coins {
+	for _, c := range projects {
 		if strings.Contains(lowerTitle, strings.ToLower(c)) {
 			return c
 		}

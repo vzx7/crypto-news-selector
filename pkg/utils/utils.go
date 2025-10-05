@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func LoadCoinsFromFile(fileName string) ([]string, error) {
+func LoadProjectsFromFile(fileName string) ([]string, error) {
 	file, error := os.Open(fileName)
 	if error != nil {
 		return nil, error
@@ -17,18 +17,18 @@ func LoadCoinsFromFile(fileName string) ([]string, error) {
 
 	defer file.Close()
 
-	var coins []string
+	var projects []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" {
-			coins = append(coins, line)
+			projects = append(projects, line)
 		}
 	}
-	return coins, scanner.Err()
+	return projects, scanner.Err()
 }
 
-func NormalizeCoinName(name string) string {
+func NormalizeProjectName(name string) string {
 	// Заменяем всё, что не буквы/цифры/дефис/подчеркивание на _
 	re := regexp.MustCompile(`[^\w\-]+`)
 	return re.ReplaceAllString(name, "_")

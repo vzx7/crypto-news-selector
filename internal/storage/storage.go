@@ -22,7 +22,7 @@ var (
 	archiveLife  = 90 * 24 * time.Hour // 3 месяца
 	maxWorkers   = 5                   // максимум одновременно работающих горутин
 	wg           sync.WaitGroup
-	coinLocks    sync.Map // mutex для каждого coin
+	projectLocks sync.Map // mutex для каждого project
 	semaphore    chan struct{}
 )
 
@@ -59,16 +59,16 @@ func InitStorage(cfg config.Config) error {
 	// создаём семафор с нужным количеством воркеров
 	semaphore = make(chan struct{}, maxWorkers)
 
-	for _, coin := range cfg.Projects {
-		safeCoin := utils.NormalizeCoinName(coin)
-		coinDir := filepath.Join(newsDir, safeCoin)
-		if err := os.MkdirAll(coinDir, 0755); err != nil {
+	for _, project := range cfg.Projects {
+		safeProject := utils.NormalizeProjectName(project)
+		projectDir := filepath.Join(newsDir, safeProject)
+		if err := os.MkdirAll(projectDir, 0755); err != nil {
 			return err
 		}
-		if err := os.MkdirAll(filepath.Join(coinDir, cfg.FileSettings.ArchiveDir), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Join(projectDir, cfg.FileSettings.ArchiveDir), 0755); err != nil {
 			return err
 		}
-		coinLocks.Store(safeCoin, &sync.Mutex{})
+		projectLocks.Store(safeProject, &sync.Mutex{})
 	}
 
 	// Асинхронная проверка при старте
@@ -77,13 +77,13 @@ func InitStorage(cfg config.Config) error {
 }
 
 // SaveNews пишет новости в файл и запускает асинхронное архивирование
-func SaveNews(coin string, news []string) error {
-	safeCoin := utils.NormalizeCoinName(coin)
+func SaveNews(project string, news []string) error {
+	safeProject := utils.NormalizeProjectName(project)
 	today := time.Now().Format("2006-01-02")
-	coinDir := filepath.Join(newsDir, safeCoin)
-	filename := filepath.Join(coinDir, fmt.Sprintf("%s.log", today))
+	projectDir := filepath.Join(newsDir, safeProject)
+	filename := filepath.Join(projectDir, fmt.Sprintf("%s.log", today))
 
-	if err := os.MkdirAll(coinDir, 0755); err != nil {
+	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		return err
 	}
 
@@ -125,46 +125,46 @@ func SaveNews(coin string, news []string) error {
 		defer wg.Done()
 		semaphore <- struct{}{}
 		defer func() { <-semaphore }()
-		archiveCoinFiles(c)
-	}(safeCoin)
+		archiveProjectFiles(c)
+	}(safeProject)
 
 	return nil
 }
 
 // CleanupAndArchive проверяет все монеты и архивирует старые файлы
-func CleanupAndArchive(coins []string) {
-	for _, coin := range coins {
+func CleanupAndArchive(projects []string) {
+	for _, project := range projects {
 		wg.Add(1)
 		go func(c string) {
 			defer wg.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			archiveCoinFiles(c)
+			archiveProjectFiles(c)
 			cleanupOldArchives(c)
-		}(coin)
+		}(project)
 	}
 	wg.Wait()
 }
 
-// getCoinMutex возвращает мьютекс для монеты, создавая его при необходимости
-func getCoinMutex(coin string) *sync.Mutex {
-	safeCoin := utils.NormalizeCoinName(coin)
-	if m, ok := coinLocks.Load(safeCoin); ok {
+// getProjectMutex возвращает мьютекс для монеты, создавая его при необходимости
+func getProjectMutex(project string) *sync.Mutex {
+	safeProject := utils.NormalizeProjectName(project)
+	if m, ok := projectLocks.Load(safeProject); ok {
 		return m.(*sync.Mutex)
 	}
 	// ленивое создание
 	mutex := &sync.Mutex{}
-	actual, _ := coinLocks.LoadOrStore(safeCoin, mutex)
+	actual, _ := projectLocks.LoadOrStore(safeProject, mutex)
 	return actual.(*sync.Mutex)
 }
 
-// archiveCoinFiles архивирует старые файлы для монеты
-func archiveCoinFiles(coin string) {
-	mutex := getCoinMutex(coin)
+// archiveProjectFiles архивирует старые файлы для монеты
+func archiveProjectFiles(project string) {
+	mutex := getProjectMutex(project)
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	dir := filepath.Join(newsDir, coin)
+	dir := filepath.Join(newsDir, project)
 	files, _ := filepath.Glob(filepath.Join(dir, "*.log"))
 
 	for _, f := range files {
@@ -215,8 +215,8 @@ func archiveFile(filePath, archiveDir string) error {
 }
 
 // cleanupOldArchives удаляет архивы старше ArchiveLife
-func cleanupOldArchives(coin string) {
-	archivePath := filepath.Join(newsDir, coin, archiveDir)
+func cleanupOldArchives(project string) {
+	archivePath := filepath.Join(newsDir, project, archiveDir)
 	files, _ := filepath.Glob(filepath.Join(archivePath, "*.zip"))
 
 	for _, f := range files {

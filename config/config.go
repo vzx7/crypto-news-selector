@@ -51,7 +51,7 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.Projects, err = utils.LoadCoinsFromFile(pathProjects); err != nil {
+	if cfg.Projects, err = utils.LoadProjectsFromFile(pathProjects); err != nil {
 		return nil, err
 	}
 	// парсим строки в time.Duration
