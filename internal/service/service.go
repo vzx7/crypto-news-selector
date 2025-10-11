@@ -123,7 +123,6 @@ func findProjectInTitle(title string, projects []string) string {
 }
 
 func logAnalysisTime() {
-	fmt.Println("\n<==================================================================================>")
-	fmt.Printf("                     RSS analysis for projects. Time: %s\n", time.Now().Format("15:04:05"))
+	fmt.Printf("                 	RSS analysis for projects. Time: %s\n", time.Now().Format("15:04:05"))
 	fmt.Println("<==================================================================================>")
 }
