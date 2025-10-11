@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Crypto News Selector</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #111;
+            color: #eee;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            margin: 20px 0;
+            text-align: center;
+            font-size: 2em;
+        }
+
+        #news {
+            width: 100%;
+            max-width: 800px;
+            /* ограничиваем ширину на больших экранах */
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+
+        .news {
+            background-color: #1a1a1a;
+            margin-bottom: 20px;
+            padding: 16px 20px;
+            border-left: 4px solid #ff6666;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+            word-wrap: break-word;
+        }
+
+        .timestamp {
+            color: #5a0b0b;
+            font-size: 0.85em;
+            margin-bottom: 2px;
+        }
+
+        .published {
+            color: #817e7e;
+            font-size: 0.85em;
+            margin-bottom: 6px;
+        }
+
+        .project {
+            color: #ff6666;
+            font-weight: bold;
+            font-size: 0.95em;
+            margin-bottom: 4px;
+        }
+
+        .title {
+            color: #068f06;
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .description,
+        .content {
+            color: #aaa;
+            font-size: 0.95em;
+            margin-bottom: 6px;
+        }
+
+        .price {
+            color: #ffd700;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        a {
+            color: #66ccff;
+            text-decoration: none;
+            word-break: break-word;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .news {
+                padding: 12px 14px;
+            }
+
+            .title {
+                font-size: 1.1em;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Crypto News Selector</h1>
+    <div id="news"></div>
+
+    <script>
+        const div = document.getElementById("news");
+        const evtSource = new EventSource("/events");
+
+        evtSource.onmessage = function (e) {
+            const msg = JSON.parse(e.data);
+            const el = document.createElement("div");
+            el.className = "news";
+
+            el.innerHTML =
+                "<div class='project'>[" + msg.Project + "]</div>" +
+                "<div class='published'><p>Date of publication: " + msg.Item.Published + "</p></div>" +
+                "<div class='title'>" + msg.Item.Title + "</div>" +
+                "<div class='price'>Price: $" + (msg.PriceUSD ? msg.PriceUSD.toFixed(2) : "N/A") + "</div>" +
+                "<div class='description'>" + (msg.Item.Description || "") + "</div>" +
+                "<div class='content'>" + (msg.Item.Content || "") + "</div>" +
+                "<a href='" + msg.Item.Link + "' target='_blank'>" + msg.Item.Link + "</a>";
+
+            div.prepend(el);
+        };
+    </script>
+</body>
+
+</html>

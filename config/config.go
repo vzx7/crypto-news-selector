@@ -1,11 +1,11 @@
 package config
 
 import (
+	"bufio"
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
-
-	"github.com/vzx7/crypto-news-selector/pkg/utils"
 )
 
 const (
@@ -32,16 +32,16 @@ type FileSettings struct {
 }
 
 type Config struct {
-	IntervalStr  string       `json:"interval"`
-	RSS          []RSS        `json:"rss"`
-	FileSettings FileSettings `json:"file_settings"`
-	Projects     []string
-	Interval     time.Duration
+	IntervalStr    string            `json:"interval"`
+	RSS            []RSS             `json:"rss"`
+	FileSettings   FileSettings      `json:"file_settings"`
+	Projects       []string          // только для старых нужд
+	ProjectSymbols map[string]string // project -> symbol
+	Interval       time.Duration
 }
 
 func LoadConfig() (*Config, error) {
 	data, err := os.ReadFile(pathConfig)
-
 	if err != nil {
 		return nil, err
 	}
@@ -51,10 +51,15 @@ func LoadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.Projects, err = utils.LoadProjectsFromFile(pathProjects); err != nil {
+	if cfg.ProjectSymbols, err = loadProjectsWithSymbolsFromFile(pathProjects); err != nil {
 		return nil, err
 	}
-	// парсим строки в time.Duration
+
+	// для совместимости старого кода
+	for p := range cfg.ProjectSymbols {
+		cfg.Projects = append(cfg.Projects, p)
+	}
+
 	if cfg.Interval, err = time.ParseDuration(cfg.IntervalStr); err != nil {
 		return nil, err
 	}
@@ -63,4 +68,33 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// LoadProjectsFromFileWithSymbols читает файл с форматами "Project Symbol"
+// загружает проекты и их символы из файла
+func loadProjectsWithSymbolsFromFile(fileName string) (map[string]string, error) {
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	projects := make(map[string]string)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		parts := strings.Split(line, "|")
+		if len(parts) != 2 {
+			continue // или log.Warnf("invalid project line: %s", line)
+		}
+		projectName := strings.TrimSpace(parts[0])
+		symbol := strings.TrimSpace(parts[1])
+		projects[projectName] = symbol
+	}
+
+	return projects, scanner.Err()
 }

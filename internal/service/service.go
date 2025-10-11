@@ -4,17 +4,44 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/vzx7/crypto-news-selector/config"
 	"github.com/vzx7/crypto-news-selector/internal/fetcher"
 	"github.com/vzx7/crypto-news-selector/internal/storage"
+	"github.com/vzx7/crypto-news-selector/internal/web"
+	"github.com/vzx7/crypto-news-selector/pkg/coingecko"
 )
 
 // NewsMessage keeps the news and attached project
+// NewsMessage keeps the news and attached project
 type NewsMessage struct {
-	Project string
-	Item    fetcher.NewsItem
+	Project  string
+	PriceUSD float64
+	Item     fetcher.NewsItem
+}
+
+type PriceCache struct {
+	mu    sync.Mutex
+	cache map[string]float64
+}
+
+func NewPriceCache() *PriceCache {
+	return &PriceCache{cache: make(map[string]float64)}
+}
+
+func (p *PriceCache) Get(symbol string) (float64, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	val, ok := p.cache[symbol]
+	return val, ok
+}
+
+func (p *PriceCache) Set(symbol string, price float64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.cache[symbol] = price
 }
 
 func Run(cfg config.Config) {
@@ -22,23 +49,36 @@ func Run(cfg config.Config) {
 		log.Fatal("Error initialization of the storage:", err)
 	}
 
-	newsChan := make(chan NewsMessage, 100)
+	go web.Start() // запускаем веб-сервер
 
+	newsChan := make(chan NewsMessage, 100)
+	priceCache := NewPriceCache()
+
+	// Обработка новостей из канала
 	go func() {
 		for msg := range newsChan {
-			printNews(msg)
+			printNews(msg) // вывод в терминал
+			web.AddNews(web.NewsMessage{Project: msg.Project, Item: msg.Item, PriceUSD: msg.PriceUSD})
 
-			// We format for a file (clean text, without colors)
-			formatted := fmt.Sprintf("[%s] %s (link: %s)", msg.Item.Title, msg.Item.Description, msg.Item.Link)
+			// Форматируем для хранения в файл
+			formatted := fmt.Sprintf("[%s] %s (link: %s) %s",
+				time.Now().Format("2006-01-02 15:04:05"), msg.Item.Title, msg.Item.Link,
+				func() string {
+					if msg.PriceUSD > 0 {
+						return fmt.Sprintf("Price: $%.2f", msg.PriceUSD)
+					}
+					return "Price: N/A"
+				}(),
+			)
 			if err := storage.SaveNews(msg.Project, []string{formatted}); err != nil {
 				log.Println("News recording error:", err)
 			}
 		}
 	}()
 
+	// Горутин для опроса RSS
 	go func() {
-		// cache headers to eliminate duplicates
-		seen := make(map[string]struct{})
+		seen := make(map[string]struct{}) // кэш заголовков для избежания дублей
 
 		processRSS := func(rssURL string) {
 			items, err := fetcher.FetchNews(rssURL, cfg.Projects)
@@ -54,7 +94,28 @@ func Run(cfg config.Config) {
 
 				project := findProjectInTitle(n.Title, cfg.Projects)
 				if project != "" {
-					newsChan <- NewsMessage{Project: project, Item: n}
+					symbol := cfg.ProjectSymbols[project]
+
+					// Проверяем кэш
+					price, ok := priceCache.Get(symbol)
+					if !ok {
+						// Задержка перед новым запросом
+						time.Sleep(300 * time.Millisecond)
+
+						p, err := coingecko.GetPriceUSD(symbol)
+						if err != nil {
+							log.Printf("Failed to get price for %s: %v", project, err)
+							p = 0
+						}
+						price = p
+						priceCache.Set(symbol, price)
+					}
+
+					newsChan <- NewsMessage{
+						Project:  project,
+						Item:     n,
+						PriceUSD: price,
+					}
 					seen[n.Title] = struct{}{}
 				}
 			}
@@ -109,6 +170,19 @@ func printNews(msg NewsMessage) {
 	fmt.Printf("LINK: \033[34m%s\033[0m\n\n", msg.Item.Link)
 
 	fmt.Println(">>>---------------------------------------------------------------------------->>>")
+
+	// --- Добавляем на веб ---
+	web.AddNews(web.NewsMessage{
+		Project:   msg.Project,
+		Timestamp: timestamp, // добавляем отдельное поле
+		Item: fetcher.NewsItem{
+			Title:       msg.Item.Title,
+			Link:        msg.Item.Link,
+			Description: msg.Item.Description,
+			Content:     msg.Item.Content,
+			Published:   msg.Item.Published,
+		},
+	})
 }
 
 // findProjectInTitle looking for a project in the heading of news
