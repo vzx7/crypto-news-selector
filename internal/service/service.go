@@ -11,7 +11,6 @@ import (
 	"github.com/vzx7/crypto-news-selector/internal/fetcher"
 	"github.com/vzx7/crypto-news-selector/internal/storage"
 	"github.com/vzx7/crypto-news-selector/internal/web"
-	"github.com/vzx7/crypto-news-selector/pkg/coingecko"
 )
 
 // NewsMessage keeps the news and attached project
@@ -52,7 +51,7 @@ func Run(cfg config.Config) {
 	go web.Start() // запускаем веб-сервер
 
 	newsChan := make(chan NewsMessage, 100)
-	priceCache := NewPriceCache()
+	//priceCache := NewPriceCache()
 
 	// Обработка новостей из канала
 	go func() {
@@ -94,27 +93,27 @@ func Run(cfg config.Config) {
 
 				project := findProjectInTitle(n.Title, cfg.Projects)
 				if project != "" {
-					symbol := cfg.ProjectSymbols[project]
+					//symbol := cfg.ProjectSymbols[project]
 
 					// Проверяем кэш
-					price, ok := priceCache.Get(symbol)
-					if !ok {
-						// Задержка перед новым запросом
-						time.Sleep(300 * time.Millisecond)
+					/* 					price, ok := priceCache.Get(symbol)
+					   					if !ok {
+					   						// Задержка перед новым запросом
+					   						time.Sleep(300 * time.Millisecond)
 
-						p, err := coingecko.GetPriceUSD(symbol)
-						if err != nil {
-							log.Printf("Failed to get price for %s: %v", project, err)
-							p = 0
-						}
-						price = p
-						priceCache.Set(symbol, price)
-					}
+					   						p, err := coingecko.GetPriceUSD(symbol)
+					   						if err != nil {
+					   							log.Printf("Failed to get price for %s: %v", project, err)
+					   							p = 0
+					   						}
+					   						price = p
+					   						priceCache.Set(symbol, price)
+					   					} */
 
 					newsChan <- NewsMessage{
 						Project:  project,
 						Item:     n,
-						PriceUSD: price,
+						PriceUSD: 0.0,
 					}
 					seen[n.Title] = struct{}{}
 				}
