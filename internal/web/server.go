@@ -7,13 +7,14 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/vzx7/crypto-news-selector/internal/fetcher"
 )
 
 type NewsMessage struct {
 	Project   string
-	Timestamp string
+	Timestamp time.Time
 	Item      fetcher.NewsItem
 	PriceUSD  float64
 }
@@ -42,12 +43,22 @@ func AddNews(msg NewsMessage) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	newsList = append(newsList, msg)
+	// delete news older than 3 days and add a new one
+	cutoff := time.Now().Add(-72 * time.Hour)
+	var filtered []NewsMessage
+	for _, n := range newsList {
+		if n.Timestamp.After(cutoff) {
+			filtered = append(filtered, n)
+		}
+	}
+	filtered = append(filtered, msg)
+	newsList = filtered
+
+	// send the news to all connected clients
 	for ch := range clients {
 		select {
 		case ch <- msg:
 		default:
-			// если клиент не читает — удаляем
 			delete(clients, ch)
 			close(ch)
 		}

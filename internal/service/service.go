@@ -58,6 +58,14 @@ func Run(cfg config.Config) {
 		for msg := range newsChan {
 			printNews(msg) // вывод в терминал
 
+			// --- Добавляем на веб только здесь ---
+			web.AddNews(web.NewsMessage{
+				Project:   msg.Project,
+				Timestamp: time.Now(),
+				PriceUSD:  msg.PriceUSD,
+				Item:      msg.Item,
+			})
+
 			// Format for storage in a file
 			formatted := fmt.Sprintf("[%s] %s (link: %s) %s",
 				time.Now().Format("2006-01-02 15:04:05"), msg.Item.Title, msg.Item.Link,
@@ -148,10 +156,10 @@ func Run(cfg config.Config) {
 
 // printNews leads the news to the terminal with flowers
 func printNews(msg NewsMessage) {
-	timestamp := time.Now().Format("2006-01-02 15:04:05")
+	timestamp := time.Now()
 
 	// Red fat for the name of the project
-	fmt.Printf("\n[%s] PROJECT: \033[1;31m%-10s\033[0m\n\n", timestamp, strings.ToUpper(msg.Project))
+	fmt.Printf("\n[%s] PROJECT: \033[1;31m%-10s\033[0m\n\n", timestamp.Format("2006-01-02 15:04:05"), strings.ToUpper(msg.Project))
 
 	// Green for title
 	fmt.Printf("TITLE: \033[32m%s\033[0m\n", msg.Item.Title)
@@ -168,20 +176,6 @@ func printNews(msg NewsMessage) {
 	fmt.Printf("LINK: \033[34m%s\033[0m\n\n", msg.Item.Link)
 
 	fmt.Println(">>>---------------------------------------------------------------------------->>>")
-
-	// --- Add to the web ---
-	web.AddNews(web.NewsMessage{
-		Project:   msg.Project,
-		Timestamp: timestamp, // добавляем отдельное поле
-		PriceUSD:  msg.PriceUSD,
-		Item: fetcher.NewsItem{
-			Title:       msg.Item.Title,
-			Link:        msg.Item.Link,
-			Description: msg.Item.Description,
-			Content:     msg.Item.Content,
-			Published:   msg.Item.Published,
-		},
-	})
 }
 
 // findProjectInTitle looking for a project in the heading of news
