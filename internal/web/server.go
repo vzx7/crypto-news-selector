@@ -24,7 +24,7 @@ var (
 	clients  = make(map[chan NewsMessage]bool)
 )
 
-// Start запускает веб-сервер на :8080
+// Start web-service :8080
 func Start() {
 	http.HandleFunc("/", servePage)
 	http.HandleFunc("/events", serveEvents)
@@ -37,7 +37,7 @@ func Start() {
 	}()
 }
 
-// AddNews добавляет новость и уведомляет всех клиентов
+// AddNews adds news and notifies all clients
 func AddNews(msg NewsMessage) {
 	mu.Lock()
 	defer mu.Unlock()
@@ -54,7 +54,7 @@ func AddNews(msg NewsMessage) {
 	}
 }
 
-// servePage — HTML-страница
+// servePage — HTML-page
 func servePage(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("internal/web/templates/index.html")
 	if err != nil {
@@ -68,7 +68,7 @@ func servePage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// serveEvents — поток событий SSE
+// serveEvents — stream of events SSE
 func serveEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -81,27 +81,33 @@ func serveEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 
 	ch := make(chan NewsMessage, 10)
+
 	mu.Lock()
 	clients[ch] = true
-	// Отправим уже накопленные новости
+	// We will send the already accumulated news
 	for _, n := range newsList {
 		data, _ := json.Marshal(n)
 		fmt.Fprintf(w, "data: %s\n\n", data)
+		flusher.Flush()
 	}
 	mu.Unlock()
 
-	// отдельная горутина — слушаем новые
-	go func() {
-		for msg := range ch {
+	// Listening to new messages in the same thread
+	for {
+		select {
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
 			data, _ := json.Marshal(msg)
 			fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
+		case <-r.Context().Done():
+			mu.Lock()
+			delete(clients, ch)
+			close(ch)
+			mu.Unlock()
+			return
 		}
-	}()
-
-	<-r.Context().Done()
-	mu.Lock()
-	delete(clients, ch)
-	close(ch)
-	mu.Unlock()
+	}
 }

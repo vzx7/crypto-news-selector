@@ -11,9 +11,9 @@ import (
 	"github.com/vzx7/crypto-news-selector/internal/fetcher"
 	"github.com/vzx7/crypto-news-selector/internal/storage"
 	"github.com/vzx7/crypto-news-selector/internal/web"
+	"github.com/vzx7/crypto-news-selector/pkg/coingecko"
 )
 
-// NewsMessage keeps the news and attached project
 // NewsMessage keeps the news and attached project
 type NewsMessage struct {
 	Project  string
@@ -48,18 +48,17 @@ func Run(cfg config.Config) {
 		log.Fatal("Error initialization of the storage:", err)
 	}
 
-	go web.Start() // запускаем веб-сервер
+	go web.Start() // start web-server
 
 	newsChan := make(chan NewsMessage, 100)
-	//priceCache := NewPriceCache()
+	priceCache := NewPriceCache()
 
-	// Обработка новостей из канала
+	// Processing news from the channel
 	go func() {
 		for msg := range newsChan {
 			printNews(msg) // вывод в терминал
-			web.AddNews(web.NewsMessage{Project: msg.Project, Item: msg.Item, PriceUSD: msg.PriceUSD})
 
-			// Форматируем для хранения в файл
+			// Format for storage in a file
 			formatted := fmt.Sprintf("[%s] %s (link: %s) %s",
 				time.Now().Format("2006-01-02 15:04:05"), msg.Item.Title, msg.Item.Link,
 				func() string {
@@ -75,7 +74,7 @@ func Run(cfg config.Config) {
 		}
 	}()
 
-	// Горутин для опроса RSS
+	// Check RSS
 	go func() {
 		seen := make(map[string]struct{}) // кэш заголовков для избежания дублей
 
@@ -93,34 +92,34 @@ func Run(cfg config.Config) {
 
 				project := findProjectInTitle(n.Title, cfg.Projects)
 				if project != "" {
-					//symbol := cfg.ProjectSymbols[project]
+					symbol := cfg.ProjectSymbols[project]
 
-					// Проверяем кэш
-					/* 					price, ok := priceCache.Get(symbol)
-					   					if !ok {
-					   						// Задержка перед новым запросом
-					   						time.Sleep(300 * time.Millisecond)
+					// Check cache
+					price, ok := priceCache.Get(symbol)
+					if !ok {
+						// Delay before a new request, so as not to degrade the api
+						time.Sleep(300 * time.Millisecond)
 
-					   						p, err := coingecko.GetPriceUSD(symbol)
-					   						if err != nil {
-					   							log.Printf("Failed to get price for %s: %v", project, err)
-					   							p = 0
-					   						}
-					   						price = p
-					   						priceCache.Set(symbol, price)
-					   					} */
+						p, err := coingecko.GetPriceUSD(symbol)
+						if err != nil {
+							log.Printf("Failed to get price for %s: %v", project, err)
+							p = 0
+						}
+						price = p
+						priceCache.Set(symbol, price)
+					}
 
 					newsChan <- NewsMessage{
 						Project:  project,
 						Item:     n,
-						PriceUSD: 0.0,
+						PriceUSD: price,
 					}
 					seen[n.Title] = struct{}{}
 				}
 			}
 		}
 
-		// Мгновенный сбор при старте
+		// Instant collection at start
 		for _, rss := range cfg.RSS {
 			logAnalysisTime()
 			processRSS(rss.Url)
@@ -170,10 +169,11 @@ func printNews(msg NewsMessage) {
 
 	fmt.Println(">>>---------------------------------------------------------------------------->>>")
 
-	// --- Добавляем на веб ---
+	// --- Add to the web ---
 	web.AddNews(web.NewsMessage{
 		Project:   msg.Project,
 		Timestamp: timestamp, // добавляем отдельное поле
+		PriceUSD:  msg.PriceUSD,
 		Item: fetcher.NewsItem{
 			Title:       msg.Item.Title,
 			Link:        msg.Item.Link,
