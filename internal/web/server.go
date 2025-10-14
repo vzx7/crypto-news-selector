@@ -91,7 +91,7 @@ func serveEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	ch := make(chan NewsMessage, 10)
+	ch := make(chan NewsMessage, 100)
 
 	mu.Lock()
 	clients[ch] = true
