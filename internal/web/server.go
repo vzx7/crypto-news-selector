@@ -96,7 +96,8 @@ func serveEvents(w http.ResponseWriter, r *http.Request) {
 	mu.Lock()
 	clients[ch] = true
 	// We will send the already accumulated news
-	for _, n := range newsList {
+	for i := len(newsList) - 1; i >= 0; i-- {
+		n := newsList[i]
 		data, _ := json.Marshal(n)
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush()
