@@ -86,11 +86,13 @@ func loadProjectsWithSymbolsFromFile(fileName string) (map[string]string, error)
 		}
 
 		parts := strings.Split(line, "|")
-		if len(parts) != 2 {
-			continue // or log.Warnf("invalid project line: %s", line)
+		var symbol string
+		if len(parts) == 2 {
+			symbol = strings.TrimSpace(parts[1])
 		}
+
 		projectName := strings.TrimSpace(parts[0])
-		symbol := strings.TrimSpace(parts[1])
+
 		projects[projectName] = symbol
 	}
 
