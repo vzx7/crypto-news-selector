@@ -23,3 +23,9 @@ func (p *PriceCache) Set(symbol string, price float64) {
 	defer p.mu.Unlock()
 	p.cache[symbol] = price
 }
+
+func (p *PriceCache) Clean() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.cache = make(map[string]float64)
+}

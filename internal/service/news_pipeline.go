@@ -22,10 +22,9 @@ type NewsMessage struct {
 // StartNewsPipeline запускает основной цикл обработки новостей
 func StartNewsPipeline(cfg config.Config) {
 	newsChan := make(chan NewsMessage, 100)
-	priceCache := newPriceCache()
 
 	go handleIncomingNews(newsChan)
-	go pollRSS(cfg, newsChan, priceCache)
+	go pollRSS(cfg, newsChan)
 }
 
 // handleIncomingNews — обработчик входящих новостей
@@ -48,8 +47,9 @@ func handleIncomingNews(newsChan <-chan NewsMessage) {
 }
 
 // pollRSS — цикл опроса RSS-источников
-func pollRSS(cfg config.Config, newsChan chan<- NewsMessage, cache *PriceCache) {
+func pollRSS(cfg config.Config, newsChan chan<- NewsMessage) {
 	seen := make(map[string]struct{})
+	priceCache := newPriceCache()
 
 	processRSS := func(rssURL string) {
 		items, err := fetcher.FetchNews(rssURL, cfg.Projects)
@@ -69,7 +69,7 @@ func pollRSS(cfg config.Config, newsChan chan<- NewsMessage, cache *PriceCache) 
 			}
 
 			symbol := cfg.ProjectSymbols[project]
-			price, ok := cache.Get(symbol)
+			price, ok := priceCache.Get(symbol)
 			if !ok {
 				time.Sleep(300 * time.Millisecond) // чтобы не заддосить API
 				p, err := coingecko.GetPriceUSD(symbol)
@@ -78,7 +78,7 @@ func pollRSS(cfg config.Config, newsChan chan<- NewsMessage, cache *PriceCache) 
 					p = 0
 				}
 				price = p
-				cache.Set(symbol, price)
+				priceCache.Set(symbol, price)
 			}
 
 			newsChan <- NewsMessage{
@@ -88,6 +88,8 @@ func pollRSS(cfg config.Config, newsChan chan<- NewsMessage, cache *PriceCache) 
 			}
 			seen[n.Title] = struct{}{}
 		}
+
+		priceCache.Clean()
 	}
 
 	// мгновенный запуск
