@@ -13,6 +13,7 @@ type NewsItem struct {
 	Link        string
 	Description string
 	Content     string
+	Published   string
 }
 
 // FetchNews interviews RSS and returns news on projects
@@ -29,11 +30,16 @@ func FetchNews(rssUrl string, projects []string) ([]NewsItem, error) {
 	for _, item := range feed.Items {
 		for _, project := range projects {
 			if utils.MatchesProjectName(item.Title, project) {
+				pubTime := ""
+				if item.PublishedParsed != nil {
+					pubTime = item.PublishedParsed.Format("2006-01-02 15:04:05")
+				}
 				items = append(items, NewsItem{
 					Title:       item.Title,
 					Link:        item.Link,
 					Description: utils.StripHTML(item.Description),
 					Content:     utils.StripHTML(item.Content),
+					Published:   pubTime,
 				})
 			}
 		}
